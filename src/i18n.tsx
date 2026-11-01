@@ -32,7 +32,7 @@ interface Strings {
   titleB: string;
   subtitle: string;
   webglError: string;
-  langSwitchTitle: string;
+  modes: Record<"single" | "wh-wh" | "wh-bh", string>;
   statDistance: string;
   statActive: string;
   statEjected: string;
@@ -81,7 +81,7 @@ export const STRINGS: Record<Lang, Strings> = {
     titleB: "Delik",
     subtitle: "Hiçbir şeyin giremediği, yalnızca madde ve ışık fışkırtan uzay-zaman bölgesi.",
     webglError: "WebGL başlatılamadı. Lütfen WebGL destekleyen bir tarayıcı kullanın.",
-    langSwitchTitle: "Switch to English",
+    modes: { single: "Tek beyaz delik", "wh-wh": "Beyaz + beyaz", "wh-bh": "Beyaz + kara" },
     statDistance: "Kamera uzaklığı",
     statActive: "Aktif asteroit",
     statEjected: "Geri fırlatılan",
@@ -148,7 +148,7 @@ export const STRINGS: Record<Lang, Strings> = {
     titleB: "Hole",
     subtitle: "A region of spacetime that nothing can enter — it only pours out matter and light.",
     webglError: "WebGL could not be initialised. Please use a browser that supports WebGL.",
-    langSwitchTitle: "Türkçeye geç",
+    modes: { single: "Single white hole", "wh-wh": "White + white", "wh-bh": "White + black" },
     statDistance: "Camera distance",
     statActive: "Active asteroids",
     statEjected: "Thrown back",

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { WhiteHoleSim, type SimEvent, type SimParams, type SimStats } from "./sim/WhiteHoleSim";
 import { STRINGS, detectLang, saveLang, type Lang } from "./i18n";
+import { LangButton, Slider, Toggle, type ViewProps } from "./ui";
+import BinaryView from "./BinaryView";
 
 const DEFAULTS: SimParams = {
   flowSpeed: 1,
@@ -19,61 +21,7 @@ interface Toast {
   event: SimEvent;
 }
 
-function Slider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  fmt,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-  fmt?: (v: number) => string;
-}) {
-  return (
-    <label className="block">
-      <div className="flex justify-between text-[11px] uppercase tracking-wider text-slate-400 mb-1">
-        <span>{label}</span>
-        <span className="text-slate-200 font-mono">{fmt ? fmt(value) : value.toFixed(2)}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-sky-300 h-1 cursor-pointer"
-      />
-    </label>
-  );
-}
-
-function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      onClick={() => onChange(!value)}
-      className="flex items-center justify-between w-full text-sm text-slate-300 py-1 group"
-    >
-      <span>{label}</span>
-      <span
-        className={`w-9 h-5 rounded-full relative transition-colors ${value ? "bg-sky-400/80" : "bg-slate-700"}`}
-      >
-        <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${value ? "left-[18px]" : "left-0.5"}`}
-        />
-      </span>
-    </button>
-  );
-}
-
-export default function App() {
+function SingleView({ lang, setLang, modeTabs }: ViewProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const simRef = useRef<WhiteHoleSim | null>(null);
   const [params, setParams] = useState<SimParams>(DEFAULTS);
@@ -83,15 +31,8 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 640);
   const [infoOpen, setInfoOpen] = useState(false);
   const [webglFailed, setWebglFailed] = useState(false);
-  const [lang, setLang] = useState<Lang>(detectLang);
   const toastId = useRef(0);
   const t = STRINGS[lang];
-
-  useEffect(() => {
-    saveLang(lang);
-    document.documentElement.lang = lang;
-    document.title = t.pageTitle;
-  }, [lang, t]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -160,6 +101,7 @@ export default function App() {
             </span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md">{t.subtitle}</p>
+          {modeTabs}
         </div>
         <div className="flex items-start gap-3 pointer-events-auto">
           <div className="hidden sm:grid grid-cols-2 gap-x-5 gap-y-1 text-[11px] font-mono text-slate-400 bg-black/30 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3">
@@ -172,15 +114,7 @@ export default function App() {
             <span>{t.statEjected}</span>
             <span className="text-right text-sky-200">{stats.ejected}</span>
           </div>
-          <button
-            onClick={() => setLang(lang === "tr" ? "en" : "tr")}
-            title={t.langSwitchTitle}
-            className="px-2.5 py-1.5 rounded-lg bg-black/30 hover:bg-white/10 backdrop-blur-md border border-white/10 text-xs font-mono tracking-wider whitespace-nowrap"
-          >
-            <span className={lang === "tr" ? "text-white" : "text-slate-500"}>TR</span>
-            <span className="text-slate-600"> / </span>
-            <span className={lang === "en" ? "text-white" : "text-slate-500"}>EN</span>
-          </button>
+          <LangButton lang={lang} setLang={setLang} />
         </div>
       </div>
 
@@ -319,5 +253,43 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+type Mode = "single" | "wh-wh" | "wh-bh";
+
+export default function App() {
+  const [lang, setLang] = useState<Lang>(detectLang);
+  const [mode, setMode] = useState<Mode>(() => {
+    const m = new URLSearchParams(window.location.search).get("mode");
+    return m === "wh-wh" || m === "wh-bh" ? m : "single";
+  });
+  const t = STRINGS[lang];
+
+  useEffect(() => {
+    saveLang(lang);
+    document.documentElement.lang = lang;
+    document.title = t.pageTitle;
+  }, [lang, t]);
+
+  const modeTabs = (
+    <div className="mt-3 inline-flex rounded-xl bg-black/40 backdrop-blur-md border border-white/10 p-1 text-xs pointer-events-auto">
+      {(["single", "wh-wh", "wh-bh"] as Mode[]).map((m) => (
+        <button
+          key={m}
+          onClick={() => setMode(m)}
+          className={`px-3 py-1.5 rounded-lg transition ${mode === m ? "bg-white/15 text-white" : "text-slate-400 hover:text-white"}`}
+        >
+          {t.modes[m]}
+        </button>
+      ))}
+    </div>
+  );
+
+  // key: switching modes tears down one WebGL scene before the next one starts
+  return mode === "single" ? (
+    <SingleView key="single" lang={lang} setLang={setLang} modeTabs={modeTabs} />
+  ) : (
+    <BinaryView key={mode} mode={mode} lang={lang} setLang={setLang} modeTabs={modeTabs} />
   );
 }

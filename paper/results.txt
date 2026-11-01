@@ -1,0 +1,29 @@
+check: threshold r_c(tau_E) = 2(M+dM): ok
+check: universal profile M_inf/M = 1 - exp((dt-tau_E)/4M) for dM << M: ok (<1e-5)
+check: DTR identity f_b f_t = f_l f_r: ok (|err| < 1e-12)
+check: exact balance M_inf = M - dM/w: ok
+check: early-crossing limit M_inf -> M: ok
+check: tau_E / (4M ln(M/dM)) at dM/M=1e-30: 0.9855
+check: a_crit inverts t_GW: ok
+
+Table 1: Eardley lifetimes
+        mass  GM/c^3 [s]  dM/M (1q)   tau/M    tau [s]   dM/M CMB   tau/M    tau [s]
+     10 Msun   4.927e-05   5.99e-79     716  3.530e-02   2.60e-45     407  2.003e-02
+  4.3e6 Msun   2.119e+01   3.24e-90     820  1.738e+04   3.59e-34     304  6.441e+03
+  6.5e9 Msun   3.202e+04   1.42e-96     879  2.814e+07   6.64e-28     246  7.888e+06
+
+Table 2: critical separations a_crit/M (t_GW(a_crit) = tau_E)
+q= 1.0: eta=0.2500  a_crit =  7.49M (tau=246M) .. 10.30M (tau=879M); orbital period at a_crit,hi = 208M
+q= 0.5: eta=0.2222  a_crit =  7.28M (tau=246M) .. 10.00M (tau=879M); orbital period at a_crit,hi = 199M
+q= 0.1: eta=0.0826  a_crit =  5.68M (tau=246M) ..  7.81M (tau=879M); orbital period at a_crit,hi = 137M
+  q=1, a0=20M: t_GW = 1.250e+04 M
+  q=1, a0=100M: t_GW = 7.812e+06 M
+  q=1, a0=1000M: t_GW = 7.812e+10 M
+
+Table 3: companion sealed by the first explosion (q=1, M1=M2=M/2)
+  a=    10M: captured 1.69e-02, dM/M2 = 1.69e-02, tau_E =  12.3 M2
+  a=    20M: captured 4.22e-03, dM/M2 = 4.22e-03, tau_E =  17.9 M2
+  a=   100M: captured 1.69e-04, dM/M2 = 1.69e-04, tau_E =  30.7 M2
+  a=  1000M: captured 1.69e-06, dM/M2 = 1.69e-06, tau_E =  49.2 M2
+
+figures written to C:\Users\Superuser\Desktop\Projeler\white-hole-simulation\paper\figures

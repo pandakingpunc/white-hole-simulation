@@ -36,7 +36,7 @@ const INNER = 1.25;
 const OUTER = 22;
 // The additive disk is far above 1.0 in HDR, so real bloom strength past ~0.3 whites out the frame.
 // The 0..3 UI slider maps onto that usable range.
-const BLOOM_SCALE = 0.1;
+export const BLOOM_SCALE = 0.1;
 
 /** Renders a scene on top of the current buffer after clearing depth. */
 class OverlayPass extends Pass {
@@ -77,11 +77,11 @@ interface Shell {
 }
 
 /** Widen the vertical FOV on portrait screens so the disk is not cropped at the sides. */
-function fovFor(aspect: number) {
+export function fovFor(aspect: number) {
   return aspect < 1 ? Math.min(85, 55 / Math.sqrt(aspect)) : 55;
 }
 
-function glowTexture(inner: string, mid: string) {
+export function glowTexture(inner: string, mid: string) {
   const c = document.createElement("canvas");
   c.width = c.height = 256;
   const g = c.getContext("2d")!;
@@ -94,6 +94,59 @@ function glowTexture(inner: string, mid: string) {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+/** Nebula sky sphere plus a twinkling star field; returns the stars material (needs uTime). */
+export function buildSpaceBackground(scene: THREE.Scene, pixelRatio: number): THREE.ShaderMaterial {
+  const bg = new THREE.Mesh(
+    new THREE.SphereGeometry(900, 48, 32),
+    new THREE.ShaderMaterial({
+      vertexShader: S.backgroundVert,
+      fragmentShader: S.backgroundFrag,
+      side: THREE.BackSide,
+      depthWrite: false,
+    })
+  );
+  scene.add(bg);
+
+  const N = 9000;
+  const pos = new Float32Array(N * 3);
+  const col = new Float32Array(N * 3);
+  const size = new Float32Array(N);
+  const c = new THREE.Color();
+  for (let i = 0; i < N; i++) {
+    const u = Math.random() * 2 - 1;
+    const th = Math.random() * Math.PI * 2;
+    const s = Math.sqrt(1 - u * u);
+    // concentrate some stars in a galactic band
+    const band = Math.random() < 0.45;
+    const y = band ? (Math.random() - 0.5) * 0.35 : u;
+    const sy = band ? Math.sqrt(1 - y * y) : s;
+    const R = 700;
+    pos[i * 3] = Math.cos(th) * sy * R;
+    pos[i * 3 + 1] = y * R;
+    pos[i * 3 + 2] = Math.sin(th) * sy * R;
+    const t = Math.random();
+    c.setHSL(t < 0.3 ? 0.6 : t < 0.6 ? 0.12 : 0.02 + Math.random() * 0.1, 0.5 + Math.random() * 0.4, 0.75 + Math.random() * 0.2);
+    col[i * 3] = c.r;
+    col[i * 3 + 1] = c.g;
+    col[i * 3 + 2] = c.b;
+    size[i] = Math.random() < 0.02 ? 3 + Math.random() * 3 : 0.8 + Math.random() * 1.8;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+  g.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
+  const starsMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uPixelRatio: { value: pixelRatio } },
+    vertexShader: S.starsVert,
+    fragmentShader: S.starsFrag,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+  });
+  scene.add(new THREE.Points(g, starsMat));
+  return starsMat;
 }
 
 export class WhiteHoleSim {
@@ -211,54 +264,7 @@ export class WhiteHoleSim {
 
   // ---------- Build ----------
   private buildBackground() {
-    const bg = new THREE.Mesh(
-      new THREE.SphereGeometry(900, 48, 32),
-      new THREE.ShaderMaterial({
-        vertexShader: S.backgroundVert,
-        fragmentShader: S.backgroundFrag,
-        side: THREE.BackSide,
-        depthWrite: false,
-      })
-    );
-    this.bgScene.add(bg);
-
-    const N = 9000;
-    const pos = new Float32Array(N * 3);
-    const col = new Float32Array(N * 3);
-    const size = new Float32Array(N);
-    const c = new THREE.Color();
-    for (let i = 0; i < N; i++) {
-      const u = Math.random() * 2 - 1;
-      const th = Math.random() * Math.PI * 2;
-      const s = Math.sqrt(1 - u * u);
-      // concentrate some stars in a galactic band
-      const band = Math.random() < 0.45;
-      const y = band ? (Math.random() - 0.5) * 0.35 : u;
-      const sy = band ? Math.sqrt(1 - y * y) : s;
-      const R = 700;
-      pos[i * 3] = Math.cos(th) * sy * R;
-      pos[i * 3 + 1] = y * R;
-      pos[i * 3 + 2] = Math.sin(th) * sy * R;
-      const t = Math.random();
-      c.setHSL(t < 0.3 ? 0.6 : t < 0.6 ? 0.12 : 0.02 + Math.random() * 0.1, 0.5 + Math.random() * 0.4, 0.75 + Math.random() * 0.2);
-      col[i * 3] = c.r;
-      col[i * 3 + 1] = c.g;
-      col[i * 3 + 2] = c.b;
-      size[i] = Math.random() < 0.02 ? 3 + Math.random() * 3 : 0.8 + Math.random() * 1.8;
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    g.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
-    g.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
-    this.starsMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uPixelRatio: { value: this.renderer.getPixelRatio() } },
-      vertexShader: S.starsVert,
-      fragmentShader: S.starsFrag,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      transparent: true,
-    });
-    this.bgScene.add(new THREE.Points(g, this.starsMat));
+    this.starsMat = buildSpaceBackground(this.bgScene, this.renderer.getPixelRatio());
   }
 
   private buildCore() {

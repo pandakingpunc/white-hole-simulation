@@ -1,0 +1,36 @@
+{
+  "title": "Can white holes merge? Eardley lifetimes from exact null-shell crossing and their consequences for white-hole binaries",
+  "upload_type": "publication",
+  "publication_type": "preprint",
+  "description": "<p>A short paper with an interactive 3D browser simulation. White holes are unstable: matter falling towards one piles up outside the horizon and seals it into a black hole (Eardley 1974). Using the exact thin-null-shell model of Barceló, Carballo-Rubio and Garay (JHEP 2016), the paper writes the lifetime of a white hole of mass M exposed to a perturbation ΔM in closed form, τ<sub>E</sub> = 4M[ln(M/ΔM) − 1 − ΔM/M] (G = c = 1), and shows that the energy of a late explosion follows the universal profile 1 − exp((Δt − τ<sub>E</sub>)/4M).</p><p>Taking the smallest physically available perturbations, from a single quantum the size of the hole to the cosmic microwave background, τ<sub>E</sub> ≈ 250–880 M for all astrophysical masses from 10 M<sub>☉</sub> to 6.5 × 10<sup>9</sup> M<sub>☉</sub>. Compared with gravitational-wave inspiral, a white hole reaches merger only if it is first exposed at a separation of about 10 M or less. In a white-hole pair, the first explosion seals the companion within tens of its own mass units. Together with the time-reversed area theorem, these estimates indicate that white holes in binaries either explode before merging or merge as black holes. The estimates rest on spherical symmetry and null shells and are not a substitute for numerical relativity.</p><p>The record contains the paper (paper/white-hole-binaries.pdf), the script that reproduces every number and figure (paper/compute.py) and the source of the simulation, whose white-hole pair and white-hole plus black-hole modes are timed by the paper's formula. Live simulation: https://pandakingpunc.github.io/white-hole-simulation/</p><p>The work was prepared with the help of an AI assistant (Claude, Anthropic); the author directed it and is responsible for the content.</p>",
+  "creators": [
+    {
+      "name": "Karatüm, Mustafa",
+      "orcid": "0009-0006-7053-2872"
+    }
+  ],
+  "license": "mit",
+  "keywords": [
+    "white hole",
+    "black hole",
+    "Eardley instability",
+    "general relativity",
+    "null shells",
+    "binary black holes",
+    "gravitational waves",
+    "simulation"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/pandakingpunc/white-hole-simulation",
+      "relation": "isSupplementedBy",
+      "resource_type": "software"
+    },
+    {
+      "identifier": "10.1007/JHEP01(2016)157",
+      "relation": "references",
+      "scheme": "doi"
+    }
+  ],
+  "language": "eng"
+}

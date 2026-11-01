@@ -1,20 +1,27 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata from this file."
 type: software
-title: "White Hole: 3D Spacetime Simulation"
+title: "Can white holes merge? Eardley lifetimes of white holes in binaries (paper and interactive 3D simulation)"
 abstract: >-
-  An interactive browser visualisation of a white hole, the time reverse of a
-  black hole. A particle disk spirals outwards and cools from blue-white to red,
-  polar jets and periodic shock waves leave the centre, and screen-space
-  gravitational lensing bends the background. Users can throw asteroids that are
-  pulled in by gravity but pushed back before reaching the horizon, trigger a
-  burst, and tune outflow, spin, time flow, bloom, lensing and particle count.
-  English and Turkish interfaces.
+  A short paper and an interactive browser simulation. Using the exact
+  thin-null-shell model of Barcelo, Carballo-Rubio and Garay, the paper gives
+  the lifetime of a white hole of mass M hit by a perturbation dM in closed
+  form, tau_E = 4M[ln(M/dM) - 1 - dM/M] (G = c = 1), shows that the energy of a
+  late explosion follows the universal profile 1 - exp((dt - tau_E)/4M), and
+  finds tau_E of about 250-880 M for astrophysical masses. Compared with
+  gravitational-wave inspiral, a white hole reaches merger only if first
+  exposed at a separation of about 10 M or less; a first explosion seals the
+  partner within tens of its mass units; with the time-reversed area theorem,
+  white holes in binaries either explode before merging or merge as black
+  holes. The 3D simulation shows an isolated white hole and white-hole pair
+  and white-hole plus black-hole collision modes timed by the paper's formula.
+  All numbers are reproduced by paper/compute.py. English and Turkish
+  interfaces.
 authors:
   - family-names: Karatüm
     given-names: Mustafa
     orcid: "https://orcid.org/0009-0006-7053-2872"
-version: 1.0.0
+version: 2.0.0
 license: MIT
 date-released: 2026-11-01
 repository-code: "https://github.com/pandakingpunc/white-hole-simulation"

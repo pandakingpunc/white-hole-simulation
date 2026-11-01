@@ -1,5 +1,7 @@
 {
   "name": "white-hole-simulation",
+  "description": "Interactive 3D white hole simulation in the browser",
+  "license": "MIT",
   "private": true,
   "version": "1.0.0",
   "type": "module",

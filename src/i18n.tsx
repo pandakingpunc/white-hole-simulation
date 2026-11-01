@@ -6,6 +6,8 @@ export type Lang = "tr" | "en";
 const STORAGE_KEY = "white-hole-lang";
 
 export function detectLang(): Lang {
+  const param = new URLSearchParams(window.location.search).get("lang");
+  if (param === "tr" || param === "en") return param;
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === "tr" || saved === "en") return saved;

@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: "White Hole: 3D Spacetime Simulation"
+abstract: >-
+  An interactive browser visualisation of a white hole, the time reverse of a
+  black hole. A particle disk spirals outwards and cools from blue-white to red,
+  polar jets and periodic shock waves leave the centre, and screen-space
+  gravitational lensing bends the background. Users can throw asteroids that are
+  pulled in by gravity but pushed back before reaching the horizon, trigger a
+  burst, and tune outflow, spin, time flow, bloom, lensing and particle count.
+  English and Turkish interfaces.
+authors:
+  - family-names: Karatüm
+    given-names: Mustafa
+    orcid: "https://orcid.org/0009-0006-7053-2872"
+version: 1.0.0
+license: MIT
+date-released: 2026-11-01
+repository-code: "https://github.com/pandakingpunc/white-hole-simulation"
+url: "https://pandakingpunc.github.io/white-hole-simulation/"
+keywords:
+  - white hole
+  - black hole
+  - general relativity
+  - astrophysics
+  - three.js
+  - education
+  - simulation

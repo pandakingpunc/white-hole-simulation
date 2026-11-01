@@ -116,7 +116,7 @@ Mustafa Karatüm · ORCID [0009-0006-7053-2872](https://orcid.org/0009-0006-7053
 
 Please cite the paper and simulation through Zenodo:
 
-> Karatüm, M. (2026). *Can white holes merge? Eardley lifetimes from exact null-shell crossing and their consequences for white-hole binaries* (v2.0.0). Zenodo. https://doi.org/10.5281/zenodo.23855411
+> Karatüm, M. (2026). *Can white holes merge? Eardley lifetimes from exact null-shell crossing and their consequences for white-hole binaries* (v2.0.1). Zenodo. https://doi.org/10.5281/zenodo.23855475
 
 The concept DOI [10.5281/zenodo.23855410](https://doi.org/10.5281/zenodo.23855410) always points to the latest version. Citation metadata is in [CITATION.cff](CITATION.cff) (GitHub shows a "Cite this repository" button).
 

@@ -3,7 +3,7 @@
   "description": "Interactive 3D white hole simulation in the browser",
   "license": "MIT",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

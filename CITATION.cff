@@ -7,13 +7,16 @@ abstract: >-
   thin-null-shell model of Barcelo, Carballo-Rubio and Garay, the paper gives
   the lifetime of a white hole of mass M hit by a perturbation dM in closed
   form, tau_E = 4M[ln(M/dM) - 1 - dM/M] (G = c = 1), shows that the energy of a
-  late explosion follows the universal profile 1 - exp((dt - tau_E)/4M), and
-  finds tau_E of about 250-880 M for astrophysical masses. Compared with
-  gravitational-wave inspiral, a white hole reaches merger only if first
-  exposed at a separation of about 10 M or less; a first explosion seals the
-  partner within tens of its mass units; with the time-reversed area theorem,
-  white holes in binaries either explode before merging or merge as black
-  holes. The 3D simulation shows an isolated white hole and white-hole pair
+  late explosion follows the universal profile 1 - exp((dt - tau_E)/4M), with
+  the rest left behind as a black-hole remnant. The cosmic microwave
+  background alone limits tau_E to at most about 250-410 M for masses from
+  10 to 6.5e9 solar masses, and a single quantum to at most about 880 M.
+  Compared with gravitational-wave inspiral, a white hole reaches merger only
+  if first exposed at a separation of about 6-10 M or less, within the last
+  few orbits; a first explosion leaves the partner only 12-50 of its own mass
+  units to explode before it is sealed; with the time-reversed no-bifurcation
+  theorem, white holes in binaries either explode, leaving black-hole
+  remnants, or merge as black holes. The 3D simulation shows an isolated white hole and white-hole pair
   and white-hole plus black-hole collision modes timed by the paper's formula.
   All numbers are reproduced by paper/compute.py. English and Turkish
   interfaces.
@@ -21,7 +24,7 @@ authors:
   - family-names: Karatüm
     given-names: Mustafa
     orcid: "https://orcid.org/0009-0006-7053-2872"
-version: 2.0.0
+version: 2.0.1
 license: MIT
 date-released: 2026-11-01
 doi: 10.5281/zenodo.23855410
@@ -32,6 +35,9 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.23855411
     description: "Version DOI for v2.0.0"
+  - type: doi
+    value: 10.5281/zenodo.23855475
+    description: "Version DOI for v2.0.1 (adds the paper PDF as a separate, previewable file)"
 repository-code: "https://github.com/pandakingpunc/white-hole-simulation"
 url: "https://pandakingpunc.github.io/white-hole-simulation/"
 keywords:

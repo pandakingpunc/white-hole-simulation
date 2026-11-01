@@ -6,10 +6,10 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { Pass } from "three/examples/jsm/postprocessing/Pass.js";
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as S from "./shaders";
 
 export interface SimParams {
-  white: boolean; // true = beyaz delik, false = kara delik
   flowSpeed: number; // 0..3
   spin: number; // 0..3
   bloom: number; // 0..3
@@ -25,14 +25,18 @@ export interface SimStats {
   fps: number;
   projectiles: number;
   ejected: number;
-  absorbed: number;
   distance: number;
 }
+
+export type SimEvent = "throw" | "bounce" | "burst";
 
 const MAX_DISK = 160000;
 const MAX_JET = 24000;
 const INNER = 1.25;
 const OUTER = 22;
+// The additive disk is far above 1.0 in HDR, so real bloom strength past ~0.3 whites out the frame.
+// The 0..3 UI slider maps onto that usable range.
+const BLOOM_SCALE = 0.1;
 
 /** Renders a scene on top of the current buffer after clearing depth. */
 class OverlayPass extends Pass {
@@ -60,7 +64,6 @@ interface Projectile {
   trail: THREE.Line;
   trailPos: Float32Array;
   heat: number;
-  dying: number; // >0 when being absorbed
   bounced: boolean;
   age: number;
 }
@@ -71,25 +74,21 @@ interface Shell {
   age: number;
   life: number;
   big: boolean;
-  inward: boolean;
 }
 
-function glowTexture(inner: string, mid: string, ring = false) {
+/** Widen the vertical FOV on portrait screens so the disk is not cropped at the sides. */
+function fovFor(aspect: number) {
+  return aspect < 1 ? Math.min(85, 55 / Math.sqrt(aspect)) : 55;
+}
+
+function glowTexture(inner: string, mid: string) {
   const c = document.createElement("canvas");
   c.width = c.height = 256;
   const g = c.getContext("2d")!;
   const grd = g.createRadialGradient(128, 128, 0, 128, 128, 128);
-  if (ring) {
-    grd.addColorStop(0, "rgba(0,0,0,0)");
-    grd.addColorStop(0.32, "rgba(0,0,0,0)");
-    grd.addColorStop(0.4, inner);
-    grd.addColorStop(0.55, mid);
-    grd.addColorStop(1, "rgba(0,0,0,0)");
-  } else {
-    grd.addColorStop(0, inner);
-    grd.addColorStop(0.2, mid);
-    grd.addColorStop(1, "rgba(0,0,0,0)");
-  }
+  grd.addColorStop(0, inner);
+  grd.addColorStop(0.2, mid);
+  grd.addColorStop(1, "rgba(0,0,0,0)");
   g.fillStyle = grd;
   g.fillRect(0, 0, 256, 256);
   const t = new THREE.CanvasTexture(c);
@@ -106,7 +105,7 @@ export class WhiteHoleSim {
   private composer: EffectComposer;
   private bloomPass: UnrealBloomPass;
   private lensPass: ShaderPass;
-  private clock = new THREE.Clock();
+  private timer = new THREE.Timer();
   private raf = 0;
   private container: HTMLElement;
 
@@ -114,7 +113,6 @@ export class WhiteHoleSim {
   private flow = 0;
   private rot = 0;
   private time = 0;
-  private whiteMix = 1;
   private burst = 0;
   private shellTimer = 0;
 
@@ -127,40 +125,40 @@ export class WhiteHoleSim {
   private core!: THREE.Mesh;
   private glow!: THREE.Sprite;
   private glow2!: THREE.Sprite;
-  private ringGlow!: THREE.Sprite;
   private starsMat!: THREE.ShaderMaterial;
   private shells: Shell[] = [];
+  private pendingShells: { at: number; big: boolean }[] = [];
   private projectiles: Projectile[] = [];
-  private stats: SimStats = { fps: 60, projectiles: 0, ejected: 0, absorbed: 0, distance: 0 };
+  private stats: SimStats = { fps: 60, projectiles: 0, ejected: 0, distance: 0 };
   private fpsAcc = 0;
   private fpsFrames = 0;
   private shake = 0;
   private onStats?: (s: SimStats) => void;
-  private onEvent?: (msg: string) => void;
+  private onEvent?: (e: SimEvent) => void;
   private ro: ResizeObserver;
 
   constructor(
     container: HTMLElement,
     params: SimParams,
     onStats?: (s: SimStats) => void,
-    onEvent?: (msg: string) => void
+    onEvent?: (e: SimEvent) => void
   ) {
     this.container = container;
     this.params = { ...params };
     this.onStats = onStats;
     this.onEvent = onEvent;
-    this.whiteMix = params.white ? 1 : 0;
 
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+    // container can still be 0×0 on the first frame; a zero-size composer floods the console with FBO errors
+    const w = container.clientWidth || window.innerWidth;
+    const h = container.clientHeight || window.innerHeight;
+    this.renderer =new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(w, h);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     container.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(55, w / h, 0.05, 2000);
+    this.camera = new THREE.PerspectiveCamera(fovFor(w / h), w / h, 0.05, 2000);
     this.camera.position.set(0, 9, 26);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -190,7 +188,6 @@ export class WhiteHoleSim {
           uRadius: { value: 0.05 },
           uAspect: { value: w / h },
           uStrength: { value: params.lensing },
-          uWhite: { value: this.whiteMix },
         },
         vertexShader: S.lensVert,
         fragmentShader: S.lensFrag,
@@ -201,7 +198,7 @@ export class WhiteHoleSim {
     this.composer.addPass(this.lensPass);
     this.composer.addPass(new OverlayPass(this.scene, this.camera));
 
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), params.bloom, 0.65, 0.12);
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), params.bloom * BLOOM_SCALE, 0.4, 0.9);
     this.composer.addPass(this.bloomPass);
     this.composer.addPass(new OutputPass());
 
@@ -266,7 +263,7 @@ export class WhiteHoleSim {
 
   private buildCore() {
     this.coreMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uWhite: { value: this.whiteMix }, uBurst: { value: 0 } },
+      uniforms: { uTime: { value: 0 }, uBurst: { value: 0 } },
       vertexShader: S.coreVert,
       fragmentShader: S.coreFrag,
     });
@@ -295,17 +292,9 @@ export class WhiteHoleSim {
     this.glow2.scale.setScalar(30);
     this.scene.add(this.glow2);
 
-    this.ringGlow = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: glowTexture("rgba(255,170,80,0.9)", "rgba(255,90,30,0.25)", true),
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0,
-      })
-    );
-    this.ringGlow.scale.setScalar(6.5);
-    this.scene.add(this.ringGlow);
+    // the horizon itself is the light source that lights asteroids
+    this.scene.add(new THREE.PointLight(0xe4ecff, 4, 0, 0));
+    this.scene.add(new THREE.AmbientLight(0x8090b0, 1.8));
   }
 
   private buildDisk() {
@@ -406,24 +395,21 @@ export class WhiteHoleSim {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.visible = false;
       this.scene.add(mesh);
-      this.shells.push({ mesh, mat, age: 0, life: 1, big: false, inward: false });
+      this.shells.push({ mesh, mat, age: 0, life: 1, big: false });
     }
   }
 
   // ---------- Public API ----------
   setParams(p: SimParams) {
-    const wasWhite = this.params.white;
     this.params = { ...p };
-    if (wasWhite !== p.white) {
-      this.onEvent?.(p.white ? "⏪ Zaman tersine çevrildi: Beyaz delik — madde dışarı fışkırıyor" : "⏩ Zaman ileri akıyor: Kara delik — madde içeri çekiliyor");
-      this.shake = 0.5;
-    }
     this.applyParams();
   }
 
   private applyParams() {
     const p = this.params;
-    this.bloomPass.strength = p.bloom;
+    this.bloomPass.strength = p.bloom * BLOOM_SCALE;
+    // Bloom at 0 would still cost a full mip-chain blur every frame
+    this.bloomPass.enabled = p.bloom > 0;
     this.lensPass.uniforms.uStrength.value = p.lensing;
     this.diskGeo.setDrawRange(0, Math.floor(p.particleCount));
     this.jetPoints.visible = p.jets;
@@ -431,16 +417,11 @@ export class WhiteHoleSim {
   }
 
   triggerBurst() {
-    if (!this.params.white) {
-      this.onEvent?.("⚠️ Kara delik patlama yapamaz — önce zamanı tersine çevirin!");
-      return;
-    }
     this.burst = 1;
     this.shake = 1;
     this.spawnShell(true);
-    setTimeout(() => this.spawnShell(true), 180);
-    setTimeout(() => this.spawnShell(false), 380);
-    this.onEvent?.("💥 Beyaz delik patlaması! Muazzam miktarda madde ve enerji salındı");
+    this.pendingShells.push({ at: this.time + 0.18, big: true }, { at: this.time + 0.38, big: false });
+    this.onEvent?.("burst");
   }
 
   throwMatter() {
@@ -449,7 +430,7 @@ export class WhiteHoleSim {
     const up = new THREE.Vector3().crossVectors(right, dir).normalize();
     const start = this.camera.position
       .clone()
-      .addScaledVector(dir, 2.5)
+      .addScaledVector(dir, 4)
       .addScaledVector(right, (Math.random() - 0.5) * 3)
       .addScaledVector(up, -1 + (Math.random() - 0.5) * 1.5);
     const target = new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2);
@@ -457,7 +438,12 @@ export class WhiteHoleSim {
     // small tangential offset for orbital curvature
     vel.addScaledVector(right, (Math.random() - 0.5) * 1.5);
 
-    const geo = new THREE.IcosahedronGeometry(0.22 + Math.random() * 0.12, 1);
+    // Icosahedron is non-indexed: merge first so shared corners get the same bump, otherwise faces split apart
+    const ico = new THREE.IcosahedronGeometry(0.22 + Math.random() * 0.12, 1);
+    ico.deleteAttribute("uv"); // uv seams would keep seam vertices from merging
+    ico.deleteAttribute("normal");
+    const geo = mergeVertices(ico);
+    ico.dispose();
     const p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const s = 0.8 + Math.random() * 0.4;
@@ -466,7 +452,7 @@ export class WhiteHoleSim {
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(
       geo,
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(0.55, 0.5, 0.48) })
+      new THREE.MeshStandardMaterial({ color: new THREE.Color(0.55, 0.5, 0.48), roughness: 0.95, flatShading: true })
     );
     mesh.position.copy(start);
     this.scene.add(mesh);
@@ -489,9 +475,9 @@ export class WhiteHoleSim {
     trail.frustumCulled = false;
     this.scene.add(trail);
 
-    this.projectiles.push({ mesh, vel, trail, trailPos, heat: 0, dying: 0, bounced: false, age: 0 });
+    this.projectiles.push({ mesh, vel, trail, trailPos, heat: 0, bounced: false, age: 0 });
     if (this.projectiles.length > 12) this.removeProjectile(this.projectiles[0]);
-    this.onEvent?.("☄️ Asteroit fırlatıldı — ufka doğru yol alıyor...");
+    this.onEvent?.("throw");
   }
 
   resetCamera() {
@@ -507,29 +493,35 @@ export class WhiteHoleSim {
   }
 
   dispose() {
+    this.timer.dispose();
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
     this.controls.dispose();
     this.composer.dispose();
+    for (const sc of [this.scene, this.bgScene]) {
+      sc.traverse((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+        for (const mat of mats) {
+          (mat as THREE.SpriteMaterial).map?.dispose();
+          mat.dispose();
+        }
+      });
+    }
     this.renderer.dispose();
-    this.scene.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if (m.geometry) m.geometry.dispose();
-    });
     this.renderer.domElement.remove();
   }
 
   // ---------- Internals ----------
-  private spawnShell(big: boolean, inward = false) {
+  private spawnShell(big: boolean) {
     const s = this.shells.find((x) => !x.mesh.visible) ?? this.shells[0];
     s.age = 0;
     s.big = big;
-    s.inward = inward;
     s.life = big ? 3.2 : 2.6;
     s.mesh.visible = true;
     const c = s.mat.uniforms.uColor.value as THREE.Color;
-    if (inward) c.setRGB(1.0, 0.55, 0.25);
-    else if (big) c.setRGB(1.0, 0.95, 0.9);
+    if (big) c.setRGB(1.0, 0.95, 0.9);
     else c.setRGB(0.6, 0.8, 1.0);
   }
 
@@ -544,7 +536,6 @@ export class WhiteHoleSim {
   }
 
   private updateProjectiles(dt: number) {
-    const white = this.params.white;
     const tmp = new THREE.Vector3();
     for (const p of [...this.projectiles]) {
       p.age += dt;
@@ -552,62 +543,40 @@ export class WhiteHoleSim {
       const r = Math.max(pos.length(), 0.05);
       tmp.copy(pos).normalize();
 
-      if (p.dying > 0) {
-        // spaghettification / absorption in black hole
-        p.dying += dt;
-        const k = p.dying;
-        p.mesh.scale.set(Math.max(0.05, 1 - k * 1.5), 1 + k * 6, Math.max(0.05, 1 - k * 1.5));
-        p.mesh.lookAt(0, 0, 0);
-        pos.multiplyScalar(1 - dt * 2.5);
-        if (k > 0.7) {
-          this.stats.absorbed++;
-          this.onEvent?.("🕳️ Asteroit olay ufkunu geçti — sonsuza dek kayboldu");
-          this.removeProjectile(p);
-          continue;
-        }
-      } else {
-        // Gravity outside the horizon is attractive for both (same Schwarzschild exterior)
-        const G = 26;
-        const acc = tmp.clone().multiplyScalar(-G / (r * r));
-        if (white) {
-          // Outflow pressure: nothing can cross a white hole horizon from outside
-          const push = (this.params.flowSpeed + 0.4) * 60 * (1 + this.burst * 4);
-          acc.addScaledVector(tmp, push / Math.pow(r, 3.2));
-          // radial drag from outflowing stream
-          const vr = p.vel.dot(tmp);
-          if (r < 5 && vr < 0) acc.addScaledVector(tmp, -vr * 2.2);
-          if (r < 3.5) p.heat = Math.min(1, p.heat + dt * 0.9);
-          if (r < 1.6) {
-            // hard wall
-            pos.copy(tmp.multiplyScalar(1.6));
-            const vr2 = p.vel.dot(tmp.normalize());
-            if (vr2 < 0) p.vel.addScaledVector(tmp, -vr2 * 2.2);
-          }
-          if (!p.bounced && r < 4 && p.vel.dot(tmp.copy(pos).normalize()) > 0.5) {
-            p.bounced = true;
-            this.stats.ejected++;
-            this.onEvent?.("🔥 Asteroit ufka ulaşamadı! Akkor halinde geri fırlatıldı");
-            if (this.params.shockwaves) this.spawnShell(false);
-          }
-        } else {
-          if (r < 3) p.heat = Math.min(1, p.heat + dt * 0.8);
-          if (r < 1.35) {
-            p.dying = 0.0001;
-          }
-        }
-        p.vel.addScaledVector(acc, dt);
-        // speed cap
-        const sp = p.vel.length();
-        if (sp > 40) p.vel.multiplyScalar(40 / sp);
-        pos.addScaledVector(p.vel, dt);
-        p.mesh.rotation.x += dt * 1.3;
-        p.mesh.rotation.y += dt * 0.9;
+      // Gravity outside the horizon is attractive (same Schwarzschild exterior as a black hole)
+      const G = 26;
+      const acc = tmp.clone().multiplyScalar(-G / (r * r));
+      // Outflow pressure: nothing can cross a white hole horizon from outside
+      const push = (this.params.flowSpeed + 0.4) * 60 * (1 + this.burst * 4);
+      acc.addScaledVector(tmp, push / Math.pow(r, 3.2));
+      // radial drag from outflowing stream
+      const vr = p.vel.dot(tmp);
+      if (r < 5 && vr < 0) acc.addScaledVector(tmp, -vr * 2.2);
+      if (r < 3.5) p.heat = Math.min(1, p.heat + dt * 0.9);
+      if (r < 1.6) {
+        // hard wall
+        pos.copy(tmp).multiplyScalar(1.6);
+        const vr2 = p.vel.dot(tmp);
+        if (vr2 < 0) p.vel.addScaledVector(tmp, -vr2 * 2.2);
       }
+      if (!p.bounced && r < 4 && p.vel.dot(tmp) > 0.5) {
+        p.bounced = true;
+        this.stats.ejected++;
+        this.onEvent?.("bounce");
+        if (this.params.shockwaves) this.spawnShell(false);
+      }
+      p.vel.addScaledVector(acc, dt);
+      // speed cap
+      const sp = p.vel.length();
+      if (sp > 40) p.vel.multiplyScalar(40 / sp);
+      pos.addScaledVector(p.vel, dt);
+      p.mesh.rotation.x += dt * 1.3;
+      p.mesh.rotation.y += dt * 0.9;
 
-      // color by heat
-      const m = p.mesh.material as THREE.MeshBasicMaterial;
+      // glow by heat
+      const m = p.mesh.material as THREE.MeshStandardMaterial;
       const h = p.heat;
-      m.color.setRGB(0.55 + h * 3.5, 0.5 + h * 2.4, 0.48 + h * (white ? 2.6 : 0.6));
+      m.emissive.setRGB(h * 3.5, h * 2.4, h * 2.6);
 
       // trail
       const tp = p.trailPos;
@@ -621,7 +590,7 @@ export class WhiteHoleSim {
       const n = tc.count;
       for (let i = 0; i < n; i++) {
         const f = (1 - i / n) * (0.4 + h * 2.5);
-        tc.setXYZ(i, f, f * (0.7 + h * 0.2), f * (0.45 + h * (white ? 0.6 : 0.1)));
+        tc.setXYZ(i, f, f * (0.7 + h * 0.2), f * (0.45 + h * 0.6));
       }
       tc.needsUpdate = true;
 
@@ -638,11 +607,8 @@ export class WhiteHoleSim {
         s.mesh.visible = false;
         continue;
       }
-      let scale: number;
-      if (s.inward) scale = 1.1 + (1 - t) * 14;
-      else scale = 1.1 + Math.pow(t, 0.7) * (s.big ? 34 : 18);
-      s.mesh.scale.setScalar(scale);
-      s.mat.uniforms.uOpacity.value = (s.inward ? Math.sin(t * Math.PI) : 1 - t) * (s.big ? 1.4 : 0.8);
+      s.mesh.scale.setScalar(1.1 + Math.pow(t, 0.7) * (s.big ? 34 : 18));
+      s.mat.uniforms.uOpacity.value = (1 - t) * (s.big ? 1.4 : 0.8);
       s.mat.uniforms.uTime.value = this.time;
     }
   }
@@ -655,7 +621,6 @@ export class WhiteHoleSim {
     const tanHalf = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
     const behind = v.z > 1;
     this.lensPass.uniforms.uRadius.value = behind ? 0 : (1 / (dist * tanHalf)) * 0.5;
-    this.lensPass.uniforms.uWhite.value = this.whiteMix;
   }
 
   private resize() {
@@ -663,6 +628,7 @@ export class WhiteHoleSim {
     const h = this.container.clientHeight;
     if (!w || !h) return;
     this.camera.aspect = w / h;
+    this.camera.fov = fovFor(w / h);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
@@ -672,7 +638,8 @@ export class WhiteHoleSim {
 
   private animate = () => {
     this.raf = requestAnimationFrame(this.animate);
-    const rawDt = Math.min(this.clock.getDelta(), 0.05);
+    this.timer.update();
+    const rawDt = Math.min(this.timer.getDelta(), 0.05);
     const p = this.params;
     const dt = rawDt * p.timeScale;
     this.time += dt;
@@ -689,14 +656,9 @@ export class WhiteHoleSim {
       this.onStats?.({ ...this.stats });
     }
 
-    // smooth mode transition
-    const targetWhite = p.white ? 1 : 0;
-    this.whiteMix += (targetWhite - this.whiteMix) * Math.min(1, rawDt * 2.5);
-    const dir = this.whiteMix * 2 - 1; // smooth flow reversal
-
     this.burst = Math.max(0, this.burst - rawDt * 0.45);
     const burstBoost = 1 + this.burst * 5;
-    this.flow += dt * p.flowSpeed * dir * burstBoost;
+    this.flow += dt * p.flowSpeed * burstBoost;
     this.rot += dt * p.spin * 0.25;
 
     // uniforms
@@ -704,37 +666,40 @@ export class WhiteHoleSim {
     du.uFlow.value = this.flow;
     du.uRot.value = this.rot;
     du.uBurst.value = this.burst;
-    du.uIntensity.value = 1.0 + this.whiteMix * 0.5 + this.burst * 1.5;
+    du.uIntensity.value = 1.5 + this.burst * 1.5;
     const ju = this.jetMat.uniforms;
     ju.uFlow.value = this.flow * 1.4;
     ju.uRot.value = this.rot;
     ju.uBurst.value = this.burst;
-    ju.uIntensity.value = 0.6 + this.whiteMix * 0.9 + this.burst * 1.5;
+    ju.uIntensity.value = 1.5 + this.burst * 1.5;
     this.gasMat.uniforms.uFlow.value = this.flow;
     this.gasMat.uniforms.uRot.value = this.rot;
-    this.gasMat.uniforms.uIntensity.value = 0.8 + this.whiteMix * 0.6 + this.burst;
+    this.gasMat.uniforms.uIntensity.value = 1.4 + this.burst;
     this.coreMat.uniforms.uTime.value = this.time;
-    this.coreMat.uniforms.uWhite.value = this.whiteMix;
     this.coreMat.uniforms.uBurst.value = this.burst;
     this.starsMat.uniforms.uTime.value = this.time;
 
     const pulse = 1 + Math.sin(this.time * 3) * 0.04;
-    (this.glow.material as THREE.SpriteMaterial).opacity = this.whiteMix * (0.95 + this.burst);
+    (this.glow.material as THREE.SpriteMaterial).opacity = 0.95 + this.burst;
     this.glow.scale.setScalar((9 + this.burst * 14) * pulse);
-    (this.glow2.material as THREE.SpriteMaterial).opacity = this.whiteMix * (0.55 + this.burst * 0.8);
+    (this.glow2.material as THREE.SpriteMaterial).opacity = 0.55 + this.burst * 0.8;
     this.glow2.scale.setScalar(30 + this.burst * 30);
-    (this.ringGlow.material as THREE.SpriteMaterial).opacity = (1 - this.whiteMix) * 0.9;
-    this.core.scale.setScalar(1 + this.whiteMix * 0.02 * Math.sin(this.time * 7) + this.burst * 0.15);
+    this.core.scale.setScalar(1 + 0.02 * Math.sin(this.time * 7) + this.burst * 0.15);
 
     // shockwaves
     if (p.shockwaves) {
       this.shellTimer -= dt * Math.max(0.2, p.flowSpeed);
       if (this.shellTimer <= 0) {
         this.shellTimer = 2.4;
-        if (this.whiteMix > 0.5) this.spawnShell(false);
-        else this.spawnShell(false, true);
+        this.spawnShell(false);
       }
     }
+    // delayed burst shells run on simulation time, so they pause with the sim and die with dispose()
+    this.pendingShells = this.pendingShells.filter((s) => {
+      if (this.time < s.at) return true;
+      this.spawnShell(s.big);
+      return false;
+    });
     this.updateShells(dt);
     this.updateProjectiles(dt);
 

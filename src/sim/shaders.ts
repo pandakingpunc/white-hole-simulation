@@ -134,7 +134,6 @@ void main(){
 
 export const coreFrag = /* glsl */ `
 uniform float uTime;
-uniform float uWhite; // 1 = white hole, 0 = black hole
 uniform float uBurst;
 varying vec3 vNormal;
 varying vec3 vView;
@@ -145,11 +144,8 @@ void main(){
   vec2 sp = vec2(atan(vPos.z,vPos.x)*1.5, vPos.y*3.0);
   float n = fbm(sp*1.5 + vec2(uTime*0.4, -uTime*0.7));
   float n2 = fbm(sp*4.0 - vec2(uTime*0.9, uTime*0.3));
-  vec3 white = vec3(1.0,0.98,0.95)*(2.6 + n*0.6 + n2*0.3 + uBurst*3.0);
-  white += vec3(0.4,0.6,1.0)*pow(f,2.0)*3.0;
-  vec3 black = vec3(0.0);
-  black += vec3(1.0,0.55,0.2)*pow(f,6.0)*2.5;
-  vec3 col = mix(black, white, uWhite);
+  vec3 col = vec3(1.0,0.98,0.95)*(2.6 + n*0.6 + n2*0.3 + uBurst*3.0);
+  col += vec3(0.4,0.6,1.0)*pow(f,2.0)*3.0;
   gl_FragColor = vec4(col,1.0);
 }
 `;
@@ -261,7 +257,6 @@ uniform vec2 uCenter;
 uniform float uRadius;
 uniform float uAspect;
 uniform float uStrength;
-uniform float uWhite;
 varying vec2 vUv;
 void main(){
   vec2 d = vUv - uCenter;
@@ -278,9 +273,6 @@ void main(){
   // Einstein ring brightening
   float ring = exp(-pow((r - rs*sqrt(uStrength)*1.0)/(rs*0.25),2.0));
   col *= 1.0 + ring*0.6;
-  // shadow of horizon (black hole mode)
-  float shadow = smoothstep(rs*2.4, rs*2.7, r);
-  col *= mix(shadow, 1.0, uWhite);
   gl_FragColor = vec4(col,1.0);
 }
 `;

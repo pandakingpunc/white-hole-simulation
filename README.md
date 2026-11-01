@@ -1,5 +1,7 @@
 # Can White Holes Merge? · Paper and 3D Simulation
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23855410.svg)](https://doi.org/10.5281/zenodo.23855410)
+
 A white hole is a black hole run backwards in time: nothing can get in, matter and light only pour out. This repository holds a short paper on what happens when two white holes, or a white hole and a black hole, meet in a binary, and an interactive 3D simulation that goes with it. The simulation runs in the browser and is built with React, TypeScript, three.js, Vite and Tailwind. English and Turkish (TR | EN toggle in the header).
 
 **Paper:** [paper/white-hole-binaries.pdf](paper/white-hole-binaries.pdf)
@@ -112,7 +114,11 @@ Mustafa Karatüm · ORCID [0009-0006-7053-2872](https://orcid.org/0009-0006-7053
 
 ## Citation
 
-Citation metadata for the paper and the simulation is in [CITATION.cff](CITATION.cff) (GitHub shows a "Cite this repository" button).
+Please cite the paper and simulation through Zenodo:
+
+> Karatüm, M. (2026). *Can white holes merge? Eardley lifetimes from exact null-shell crossing and their consequences for white-hole binaries* (v2.0.0). Zenodo. https://doi.org/10.5281/zenodo.23855411
+
+The concept DOI [10.5281/zenodo.23855410](https://doi.org/10.5281/zenodo.23855410) always points to the latest version. Citation metadata is in [CITATION.cff](CITATION.cff) (GitHub shows a "Cite this repository" button).
 
 ## License
 

@@ -24,6 +24,14 @@ authors:
 version: 2.0.0
 license: MIT
 date-released: 2026-11-01
+doi: 10.5281/zenodo.23855410
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23855410
+    description: "Concept DOI: always resolves to the latest version"
+  - type: doi
+    value: 10.5281/zenodo.23855411
+    description: "Version DOI for v2.0.0"
 repository-code: "https://github.com/pandakingpunc/white-hole-simulation"
 url: "https://pandakingpunc.github.io/white-hole-simulation/"
 keywords:
